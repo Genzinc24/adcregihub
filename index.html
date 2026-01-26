@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RegiHub — Community & Knowledge Portal</title>
+  <meta name="description" content="RegiHub: Your hub for community updates, resources, and events." />
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="assets/icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.css' rel='stylesheet' />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Loader -->
+  <div id="loader" class="loader" aria-hidden="true">
+    <img src="assets/icon-128.png" alt="Loading RegiHub" />
+    <span>Loading RegiHub…</span>
+  </div>
+
+  <header class="topbar">
+    <div class="container row between center">
+      <a class="brand" href="#home" data-tab="home" aria-label="RegiHub Home">
+        <img class="brand-img" src="assets/logo.png" alt="RegiHub logo"/>
+        <span class="brand-text">RegiHub</span>
+      </a>
+      <nav class="nav">
+        <button class="nav-toggle" aria-label="Toggle navigation"><i class="fa fa-bars"></i></button>
+        <ul class="nav-list">
+          <li><a class="active" href="#home" data-tab="home">Home</a></li>
+          <li class="has-sub">
+            <a href="#resources" data-tab="resources">Resources <i class="fa fa-chevron-down sm"></i></a>
+            <div class="mega">
+              <div>
+                <h4>Getting Started</h4>
+                <a href="#">What is RegiHub?</a>
+                <a href="#">How-To Guides</a>
+                <a href="#">Best Practices</a>
+              </div>
+              <div>
+                <h4>Knowledge Base</h4>
+                <a href="#">Articles</a>
+                <a href="#">Templates</a>
+                <a href="#">Downloads</a>
+              </div>
+              <div>
+                <h4>For Developers</h4>
+                <a href="#">API Docs</a>
+                <a href="#">SDKs</a>
+                <a href="#">Changelog</a>
+              </div>
+            </div>
+          </li>
+          <li><a href="#news" data-tab="news">News</a></li>
+          <li><a href="#calendar" data-tab="calendar">Calendar</a></li>
+          <li><a href="#about" data-tab="about">About</a></li>
+          <li><a href="#contact" data-tab="contact">Contact</a></li>
+        </ul>
+      </nav>
+      <div class="actions row gap-sm">
+        <form class="search" role="search" onsubmit="return false;">
+          <input id="searchInput" type="search" placeholder="Search RegiHub…" aria-label="Search" />
+          <button aria-label="Search"><i class="fa fa-search"></i></button>
+        </form>
+        <a class="btn btn-primary" href="#join">Join</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO / CAROUSEL with badge -->
+  <section class="hero" id="home" data-pane>
+    <div class="logo-badge">
+      <img src="assets/logo.png" alt="RegiHub"/>
+    </div>
+    <div class="carousel" id="heroCarousel" aria-roledescription="carousel">
+      <div class="slides">
+        <article class="slide is-active" style="--bg:url('https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop')">
+          <div class="slide-content">
+            <h1>Welcome to RegiHub</h1>
+            <p>Your central hub for community updates, knowledge, and events.</p>
+            <div class="row gap-sm">
+              <a class="btn btn-accent" href="#resources" data-tab="resources">Explore Resources</a>
+              <a class="btn btn-outline" href="#calendar" data-tab="calendar">See Calendar</a>
+            </div>
+          </div>
+        </article>
+        <article class="slide" style="--bg:url('https://images.unsplash.com/photo-1556761175-b413da4baf72?q=80&w=1600&auto=format&fit=crop')">
+          <div class="slide-content">
+            <h1>Shape What's Next</h1>
+            <p>Contribute guides, post updates, and connect with peers.</p>
+            <a class="btn btn-primary" href="#news" data-tab="news">Read the Latest</a>
+          </div>
+        </article>
+        <article class="slide" style="--bg:url('https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?q=80&w=1600&auto=format&fit=crop')">
+          <div class="slide-content">
+            <h1>Events & Tasks</h1>
+            <p>Add tasks and events that automatically show up on the calendar.</p>
+            <a class="btn btn-accent" href="#calendar" data-tab="calendar">Add an Event</a>
+          </div>
+        </article>
+      </div>
+      <div class="carousel-controls">
+        <button class="prev" aria-label="Previous slide"><i class="fa fa-chevron-left"></i></button>
+        <button class="next" aria-label="Next slide"><i class="fa fa-chevron-right"></i></button>
+      </div>
+      <div class="dots" role="tablist" aria-label="Choose slide"></div>
+    </div>
+  </section>
+
+  <!-- TICKER -->
+  <section class="ticker">
+    <div class="container row between center">
+      <div class="row center gap-sm"><i class="fa fa-calendar"></i><strong>Upcoming</strong></div>
+      <marquee id="upcomingMarquee" behavior="scroll" direction="left" scrollamount="6">No upcoming items yet — add one from the Calendar tab.</marquee>
+      <a class="btn btn-ghost sm" href="#calendar" data-tab="calendar">View Full Calendar</a>
+    </div>
+  </section>
+
+  <!-- FEATURED STRIP -->
+  <section class="strip">
+    <div class="container grid cols-4 responsive-gap">
+      <a class="tile" href="#resources" data-tab="resources"><i class="fa fa-book-open"></i><span>Guides & How‑tos</span></a>
+      <a class="tile" href="#news" data-tab="news"><i class="fa fa-bullhorn"></i><span>Announcements</span></a>
+      <a class="tile" href="#calendar" data-tab="calendar"><i class="fa fa-clipboard-check"></i><span>Tasks & Events</span></a>
+      <a class="tile" href="#contact" data-tab="contact"><i class="fa fa-headset"></i><span>Support</span></a>
+    </div>
+  </section>
+
+  <!-- RESOURCES PANE -->
+  <main id="resources" class="container pad" data-pane hidden>
+    <h2 class="section-title">Resources</h2>
+    <div class="grid cols-3 responsive-gap">
+      <article class="card">
+        <h3>Starter Kit</h3>
+        <p>Download templates and checklists to kickstart your work.</p>
+        <a class="btn btn-outline" href="#">Download</a>
+      </article>
+      <article class="card">
+        <h3>Knowledge Base</h3>
+        <p>Search hundreds of articles contributed by the community.</p>
+        <a class="btn btn-outline" href="#">Browse Articles</a>
+      </article>
+      <article class="card">
+        <h3>Developer Docs</h3>
+        <p>APIs, SDKs, and examples for building on RegiHub.</p>
+        <a class="btn btn-outline" href="#">Open Docs</a>
+      </article>
+    </div>
+  </main>
+
+  <!-- NEWS PANE -->
+  <section id="news" class="container pad" data-pane hidden>
+    <h2 class="section-title">Latest News</h2>
+    <div class="grid cols-3 responsive-gap" id="newsCards">
+      <article class="news-card">
+        <img src="https://images.unsplash.com/photo-1529336953121-ad3013c1c9a5?q=80&w=1200&auto=format&fit=crop" alt="Team working together"/>
+        <div class="content">
+          <h3>RegiHub 1.2 Released</h3>
+          <p>Performance boosts, better search, and calendar upgrades.</p>
+          <a href="#" class="link">Read more</a>
+        </div>
+      </article>
+      <article class="news-card">
+        <img src="https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200&auto=format&fit=crop" alt="Laptop with charts"/>
+        <div class="content">
+          <h3>New Knowledge Packs</h3>
+          <p>Curated resources to help your team move faster.</p>
+          <a href="#" class="link">Read more</a>
+        </div>
+      </article>
+      <article class="news-card">
+        <img src="https://images.unsplash.com/photo-1493723843671-1d655e66ac1c?q=80&w=1200&auto=format&fit=crop" alt="People in a workshop"/>
+        <div class="content">
+          <h3>Community Spotlight</h3>
+          <p>See how members are using RegiHub to deliver results.</p>
+          <a href="#" class="link">Read more</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- CALENDAR & TASKS PANE -->
+  <section id="calendar" class="container pad" data-pane hidden>
+    <div class="row between center wrap gap-md">
+      <h2 class="section-title">Calendar</h2>
+      <div class="row gap-sm">
+        <button id="btnAdd" class="btn btn-primary"><i class="fa fa-plus"></i> Add Event/Task</button>
+        <button id="btnClear" class="btn btn-ghost"><i class="fa fa-trash"></i> Clear All (local)</button>
+      </div>
+    </div>
+    <div class="grid cols-3-1 responsive-gap">
+      <div class="card pad-0">
+        <div id='calendarEl'></div>
+      </div>
+      <aside class="card">
+        <h3 class="m-0">My Tasks</h3>
+        <p class="muted">Tasks also appear on the calendar on their due date.</p>
+        <ul id="taskList" class="task-list"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ABOUT -->
+  <section id="about" class="container pad" data-pane hidden>
+    <h2 class="section-title">About RegiHub</h2>
+    <p>RegiHub is designed to <strong>help you organize your tasks and keep you up to date on important events, deadlines, and duties</strong>. With its built‑in calendar, reminders, and task management, you’ll never miss a commitment. It also provides <strong>streamlined tools that expedite your daily tasks</strong>, so you can work smarter and focus on what matters.</p>
+  </section>
+
+ 
+
+<!-- CONTACT -->
+<section id="contact" class="container pad" data-pane hidden>
+  <h2 class="section-title">Contact</h2>
+
+  <div class="card" style="line-height: 1.8; font-size: 1.05rem;">
+    <p><strong>RegiHub Contact Person</strong></p>
+
+    <p>
+      <strong>Dave Gimelga</strong><br>
+      Data Management Officer<br>
+      <strong>Contact Number:</strong> 0992 673 7312<br>
+      <strong>Email:</strong> dave.gimelga@shs-adc.edu.ph
+    </p>
+
+    <p>
+      For assistance, concerns, or coordination regarding RegiHub, please reach out using the contact details above.
+    </p>
+  </div>
+</section>
+
+
+  <footer class="footer">
+    <div class="container grid cols-4 responsive-gap">
+      <div>
+        <a class="brand small" href="#home" data-tab="home">
+          <img class="brand-img small" src="assets/logo.png" alt="RegiHub logo small" />
+          <span>RegiHub</span>
+        </a>
+        <p class="muted">© <span id="year"></span> RegiHub. All rights reserved.</p>
+      </div>
+      <div>
+        <h4>Sections</h4>
+        <a href="#resources" data-tab="resources">Resources</a>
+        <a href="#news" data-tab="news">News</a>
+        <a href="#calendar" data-tab="calendar">Calendar</a>
+      </div>
+      <div>
+        <h4>Company</h4>
+        <a href="#about" data-tab="about">About</a>
+        <a href="#contact" data-tab="contact">Contact</a>
+      </div>
+      <div>
+        <h4>Follow</h4>
+        <div class="row gap-sm">
+          <a class="icon" href="#" aria-label="X"><i class="fab fa-x-twitter"></i></a>
+          <a class="icon" href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
+          <a class="icon" href="#" aria-label="LinkedIn"><i class="fab fa-linkedin"></i></a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL -->
+  <dialog id="modal" class="modal">
+    <form id="eventForm" method="dialog">
+      <header class="row between center">
+        <h3 id="modalTitle">Add Event / Task</h3>
+        <button type="button" class="icon" id="closeModal" aria-label="Close"><i class="fa fa-times"></i></button>
+      </header>
+      <div class="grid cols-2 responsive-gap">
+        <label class="col-span-2">Title
+          <input id="title" required placeholder="e.g., Sprint Review" />
+        </label>
+        <label>Type
+          <select id="type">
+            <option value="event" selected>Event</option>
+            <option value="task">Task</option>
+          </select>
+        </label>
+        <label>Category
+          <select id="category">
+            <option value="General" selected>General</option>
+            <option value="Meeting">Meeting</option>
+            <option value="Deadline">Deadline</option>
+            <option value="Workshop">Workshop</option>
+          </select>
+        </label>
+        <label>Start
+          <input id="start" type="datetime-local" required />
+        </label>
+        <label>End
+          <input id="end" type="datetime-local" />
+        </label>
+        <label class="col-span-2">Description
+          <textarea id="desc" rows="4" placeholder="Optional details..."></textarea>
+        </label>
+        <label>Color
+          <input id="color" type="color" value="#0a4ed3"/>
+        </label>
+        <label>All Day
+          <input id="allDay" type="checkbox" />
+        </label>
+      </div>
+      <menu class="right">
+        <button value="cancel" class="btn btn-ghost">Cancel</button>
+        <button id="saveBtn" value="default" class="btn btn-primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/main.min.js'></script>
+  <script src="indexeddb.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
