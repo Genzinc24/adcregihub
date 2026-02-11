@@ -350,3 +350,167 @@ async function handleEditTask(taskId, updatedTaskData) {
     console.error('Error updating task:', error);
     alert('Failed to update task');
  });
+  let calendar; // Global calendar instance
+
+// Initialize and render the full calendar when page loads
+window.addEventListener('load', async () => {
+  console.log('Initializing calendar...');
+  
+  // Get all events and tasks from IndexedDB
+  const events = await getAllEvents();
+  const tasks = await getAllTasks();
+  
+  // Convert to FullCalendar format
+  const calendarEvents = convertToCalendarFormat(events, tasks);
+  
+  // Initialize FullCalendar
+  initializeFullCalendar(calendarEvents);
+});
+
+// Convert events and tasks to FullCalendar format
+function convertToCalendarFormat(events, tasks) {
+  const calendarEvents = [];
+  
+  // Add events
+  if(events && events.length > 0) {
+    events.forEach(event => {
+      calendarEvents.push({
+        id: event.id,
+        title: event.title || 'Untitled Event',
+        start: event.date + 'T' + (event.time || '09:00'),
+        description: event.description || '',
+        backgroundColor: '#3498db', // Blue for events
+        borderColor: '#2980b9',
+        classNames: ['event-item']
+      });
+    });
+  }
+  
+  // Add tasks
+  if(tasks && tasks.length > 0) {
+    tasks.forEach(task => {
+      calendarEvents.push({
+        id: 'task-' + task.id,
+        title: (task.completed ? '✓ ' : '○ ') + (task.title || 'Untitled Task'),
+        start: task.dueDate || new Date().toISOString().split('T')[0],
+        description: task.description || '',
+        backgroundColor: task.completed ? '#95a5a6' : '#e74c3c', // Red for tasks
+        borderColor: task.completed ? '#7f8c8d' : '#c0392b',
+        classNames: ['task-item']
+      });
+    });
+  }
+  
+  return calendarEvents;
+}
+
+// Initialize FullCalendar
+function initializeFullCalendar(calendarEvents) {
+  const calendarEl = document.getElementById('calendar');
+  
+  if(!calendarEl) {
+    console.error('Calendar element not found!');
+    return;
+  }
+  
+  calendar = new FullCalendar.Calendar(calendarEl, {
+    initialView: 'dayGridMonth', // Month view by default
+    headerToolbar: {
+      left: 'prev,next today addEvent',
+      center: 'title',
+      right: 'dayGridMonth,timeGridWeek,timeGridDay,listMonth'
+    },
+    height: 'auto',
+    editable: true,
+    selectable: true,
+    selectConstraint: 'businessHours',
+    eventColor: '#3498db',
+    events: calendarEvents,
+    
+    // When user clicks on a date
+    select: function(info) {
+      openEventCreationModal(info.startStr);
+    },
+    
+    // When user clicks on an event
+    eventClick: function(info) {
+      viewEventDetails(info.event);
+    },
+    
+    // When user drags event to new date
+    eventDrop: function(info) {
+      handleEventDrop(info.event);
+    },
+    
+    // Custom button to add event
+    customButtons: {
+      addEvent: {
+        text: 'Add Event',
+        click: function() {
+          openEventCreationModal();
+        }
+      }
+    }
+  });
+  
+  calendar.render();
+}
+
+// View event/task details in a modal
+function viewEventDetails(event) {
+  const isTask = event.id.startsWith('task-');
+  const title = isTask ? event.title.replace(/^[✓○] /, '') : event.title;
+  
+  console.log('Event Details:', {
+    id: event.id,
+    title: title,
+    start: event.startStr,
+    description: event.extendedProps.description,
+    type: isTask ? 'Task' : 'Event'
+  });
+  
+  // You can create a modal here to show full details
+  alert(`${isTask ? 'Task' : 'Event'}: ${title}\nDate: ${event.startStr}\nDescription: ${event.extendedProps.description}`);
+}
+
+// Open modal to create new event
+function openEventCreationModal(selectedDate = null) {
+  console.log('Opening event creation modal for date:', selectedDate);
+  // Create your modal/form here for adding new events
+}
+
+// Handle when user drags an event to a new date
+async function handleEventDrop(event) {
+  const isTask = event.id.startsWith('task-');
+  const id = isTask ? parseInt(event.id.replace('task-', '')) : parseInt(event.id);
+  
+  if(isTask) {
+    // Update task with new date
+    const task = await getTaskById(id);
+    if(task) {
+      task.dueDate = event.startStr.split('T')[0];
+      await updateTask(id, task);
+      console.log('Task date updated');
+    }
+  } else {
+    // Update event with new date
+    const eventObj = await getEventById(id);
+    if(eventObj) {
+      const dateTime = event.startStr.split('T');
+      eventObj.date = dateTime[0];
+      eventObj.time = dateTime[1] || eventObj.time;
+      await updateEvent(id, eventObj);
+      console.log('Event date updated');
+    }
+  }
+}
+
+// Refresh calendar after adding/editing event or task
+async function refreshCalendar() {
+  const events = await getAllEvents();
+  const tasks = await getAllTasks();
+  const calendarEvents = convertToCalendarFormat(events, tasks);
+  
+  calendar.removeAllEvents();
+  calendar.addEventSource(calendarEvents);
+});
