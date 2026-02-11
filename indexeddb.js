@@ -1,308 +1,207 @@
-// IndexedDB Configuration
-const DB_NAME = 'CalendarDB';
-const DB_VERSION = 1;
-const EVENTS_STORE = 'events';
-const TASKS_STORE = 'tasks';
+// Simple IndexedDB wrapper for RegiHub
+const DB_NAME = 'regihub_db_v1';
+const STORE = 'regihub';
+const EVENTS_KEY = 'calendar_events';
+const TASKS_KEY = 'calendar_tasks';
 
-// Initialize IndexedDB Database
-function initDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    
-    request.onerror = () => {
-      console.error('Database failed to open:', request.error);
-      reject(request.error);
+function idbOpen(){
+  return new Promise((resolve, reject)=>{
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = ()=>{
+      const db = req.result;
+      if(!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
     };
-    
-    request.onsuccess = () => {
-      console.log('Database opened successfully');
-      resolve(request.result);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      
-      // Create Events Object Store
-      if (!db.objectStoreNames.contains(EVENTS_STORE)) {
-        const eventStore = db.createObjectStore(EVENTS_STORE, { keyPath: 'id', autoIncrement: true });
-        eventStore.createIndex('date', 'date', { unique: false });
-        console.log('Events store created');
-      }
-      
-      // Create Tasks Object Store
-      if (!db.objectStoreNames.contains(TASKS_STORE)) {
-        const taskStore = db.createObjectStore(TASKS_STORE, { keyPath: 'id', autoIncrement: true });
-        taskStore.createIndex('dueDate', 'dueDate', { unique: false });
-        console.log('Tasks store created');
-      }
-    };
+    req.onsuccess = ()=> resolve(req.result);
+    req.onerror = ()=> reject(req.error);
   });
 }
 
-// ADD EVENT
+async function idbGet(key){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, 'readonly');
+      const store = tx.objectStore(STORE);
+      const r = store.get(key);
+      r.onsuccess = ()=> resolve(r.result || null);
+      r.onerror = ()=> reject(r.error);
+    });
+  }catch{ return null }
+}
+
+async function idbSet(key, value){
+  try{
+    const db = await idbOpen();
+    return await new Promise((resolve, reject)=>{
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      const r = store.put(value, key);
+      r.onsuccess = ()=> resolve(true);
+      r.onerror = ()=> reject(r.error);
+    });
+  }catch{ return false }
+}
+
+// ===== CALENDAR EVENT FUNCTIONS =====
 async function addEvent(event) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readwrite');
-    const store = transaction.objectStore(EVENTS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.add(event);
-      request.onsuccess = () => {
-        console.log('Event added with ID:', request.result);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const events = await getAllEvents();
+    event.id = Date.now(); // Use timestamp as ID
+    events.push(event);
+    await idbSet(EVENTS_KEY, events);
+    console.log('Event added:', event.id);
+    return event.id;
+  } catch(error) {
     console.error('Error adding event:', error);
-    throw error;
+    return null;
   }
 }
 
-// GET ALL EVENTS
 async function getAllEvents() {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readonly');
-    const store = transaction.objectStore(EVENTS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.getAll();
-      request.onsuccess = () => {
-        console.log('Events retrieved:', request.result);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const events = await idbGet(EVENTS_KEY);
+    return events || [];
+  } catch(error) {
     console.error('Error getting events:', error);
-    throw error;
+    return [];
   }
 }
 
-// GET EVENT BY ID
 async function getEventById(id) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readonly');
-    const store = transaction.objectStore(EVENTS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.get(id);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const events = await getAllEvents();
+    return events.find(e => e.id === id) || null;
+  } catch(error) {
     console.error('Error getting event:', error);
-    throw error;
+    return null;
   }
 }
 
-// UPDATE EVENT
 async function updateEvent(id, updatedEvent) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readwrite');
-    const store = transaction.objectStore(EVENTS_STORE);
-    
-    updatedEvent.id = id;
-    
-    return new Promise((resolve, reject) => {
-      const request = store.put(updatedEvent);
-      request.onsuccess = () => {
-        console.log('Event updated:', id);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const events = await getAllEvents();
+    const index = events.findIndex(e => e.id === id);
+    if(index !== -1) {
+      updatedEvent.id = id;
+      events[index] = updatedEvent;
+      await idbSet(EVENTS_KEY, events);
+      console.log('Event updated:', id);
+      return true;
+    }
+    return false;
+  } catch(error) {
     console.error('Error updating event:', error);
-    throw error;
+    return false;
   }
 }
 
-// DELETE EVENT
 async function deleteEvent(id) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readwrite');
-    const store = transaction.objectStore(EVENTS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.delete(id);
-      request.onsuccess = () => {
-        console.log('Event deleted:', id);
-        resolve();
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    let events = await getAllEvents();
+    events = events.filter(e => e.id !== id);
+    await idbSet(EVENTS_KEY, events);
+    console.log('Event deleted:', id);
+    return true;
+  } catch(error) {
     console.error('Error deleting event:', error);
-    throw error;
+    return false;
   }
 }
 
-// GET EVENTS BY DATE
 async function getEventsByDate(date) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE], 'readonly');
-    const store = transaction.objectStore(EVENTS_STORE);
-    const index = store.index('date');
-    
-    return new Promise((resolve, reject) => {
-      const request = index.getAll(date);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const events = await getAllEvents();
+    return events.filter(e => e.date === date);
+  } catch(error) {
     console.error('Error getting events by date:', error);
-    throw error;
+    return [];
   }
 }
 
-// ADD TASK
+// ===== CALENDAR TASK FUNCTIONS =====
 async function addTask(task) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readwrite');
-    const store = transaction.objectStore(TASKS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.add(task);
-      request.onsuccess = () => {
-        console.log('Task added with ID:', request.result);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const tasks = await getAllTasks();
+    task.id = Date.now(); // Use timestamp as ID
+    tasks.push(task);
+    await idbSet(TASKS_KEY, tasks);
+    console.log('Task added:', task.id);
+    return task.id;
+  } catch(error) {
     console.error('Error adding task:', error);
-    throw error;
+    return null;
   }
 }
 
-// GET ALL TASKS
 async function getAllTasks() {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readonly');
-    const store = transaction.objectStore(TASKS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.getAll();
-      request.onsuccess = () => {
-        console.log('Tasks retrieved:', request.result);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const tasks = await idbGet(TASKS_KEY);
+    return tasks || [];
+  } catch(error) {
     console.error('Error getting tasks:', error);
-    throw error;
+    return [];
   }
 }
 
-// GET TASK BY ID
 async function getTaskById(id) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readonly');
-    const store = transaction.objectStore(TASKS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.get(id);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const tasks = await getAllTasks();
+    return tasks.find(t => t.id === id) || null;
+  } catch(error) {
     console.error('Error getting task:', error);
-    throw error;
+    return null;
   }
 }
 
-// UPDATE TASK
 async function updateTask(id, updatedTask) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readwrite');
-    const store = transaction.objectStore(TASKS_STORE);
-    
-    updatedTask.id = id;
-    
-    return new Promise((resolve, reject) => {
-      const request = store.put(updatedTask);
-      request.onsuccess = () => {
-        console.log('Task updated:', id);
-        resolve(request.result);
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const tasks = await getAllTasks();
+    const index = tasks.findIndex(t => t.id === id);
+    if(index !== -1) {
+      updatedTask.id = id;
+      tasks[index] = updatedTask;
+      await idbSet(TASKS_KEY, tasks);
+      console.log('Task updated:', id);
+      return true;
+    }
+    return false;
+  } catch(error) {
     console.error('Error updating task:', error);
-    throw error;
+    return false;
   }
 }
 
-// DELETE TASK
 async function deleteTask(id) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readwrite');
-    const store = transaction.objectStore(TASKS_STORE);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.delete(id);
-      request.onsuccess = () => {
-        console.log('Task deleted:', id);
-        resolve();
-      };
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    let tasks = await getAllTasks();
+    tasks = tasks.filter(t => t.id !== id);
+    await idbSet(TASKS_KEY, tasks);
+    console.log('Task deleted:', id);
+    return true;
+  } catch(error) {
     console.error('Error deleting task:', error);
-    throw error;
+    return false;
   }
 }
 
-// GET TASKS BY DUE DATE
 async function getTasksByDueDate(dueDate) {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([TASKS_STORE], 'readonly');
-    const store = transaction.objectStore(TASKS_STORE);
-    const index = store.index('dueDate');
-    
-    return new Promise((resolve, reject) => {
-      const request = index.getAll(dueDate);
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
-  } catch (error) {
+    const tasks = await getAllTasks();
+    return tasks.filter(t => t.dueDate === dueDate);
+  } catch(error) {
     console.error('Error getting tasks by due date:', error);
-    throw error;
+    return [];
   }
 }
 
-// CLEAR ALL DATA (for testing/reset)
 async function clearAllData() {
   try {
-    const db = await initDB();
-    const transaction = db.transaction([EVENTS_STORE, TASKS_STORE], 'readwrite');
-    
-    return new Promise((resolve, reject) => {
-      const eventsClear = transaction.objectStore(EVENTS_STORE).clear();
-      const tasksClear = transaction.objectStore(TASKS_STORE).clear();
-      
-      transaction.oncomplete = () => {
-        console.log('All data cleared');
-        resolve();
-      };
-      transaction.onerror = () => reject(transaction.error);
-    });
-  } catch (error) {
+    await idbSet(EVENTS_KEY, []);
+    await idbSet(TASKS_KEY, []);
+    console.log('All data cleared');
+    return true;
+  } catch(error) {
     console.error('Error clearing data:', error);
-    throw error;
+    return false;
   }
 }
