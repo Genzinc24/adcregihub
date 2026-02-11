@@ -222,3 +222,131 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   await refreshTasks();
   await refreshTicker();
 });
+// Load events and tasks when page loads
+window.addEventListener('load', async () => {
+  console.log('Page loaded, loading persisted data...');
+  
+  try {
+    const events = await getAllEvents();
+    const tasks = await getAllTasks();
+    
+    console.log('Loaded events:', events);
+    console.log('Loaded tasks:', tasks);
+    
+    // Render your calendar with loaded data
+    renderCalendar(events, tasks);
+  } catch (error) {
+    console.error('Failed to load persisted data:', error);
+  }
+});
+
+// When creating a new event, save to IndexedDB
+async function handleAddEvent(eventData) {
+  try {
+    const eventId = await addEvent({
+      title: eventData.title,
+      date: eventData.date,
+      time: eventData.time,
+      description: eventData.description,
+      createdAt: new Date().toISOString()
+    });
+    
+    console.log('Event saved with ID:', eventId);
+    
+    // Refresh calendar display
+    const events = await getAllEvents();
+    renderCalendar(events);
+  } catch (error) {
+    console.error('Error saving event:', error);
+    alert('Failed to save event');
+  }
+}
+
+// When creating a new task, save to IndexedDB
+async function handleAddTask(taskData) {
+  try {
+    const taskId = await addTask({
+      title: taskData.title,
+      description: taskData.description,
+      dueDate: taskData.dueDate,
+      completed: false,
+      createdAt: new Date().toISOString()
+    });
+    
+    console.log('Task saved with ID:', taskId);
+    
+    // Refresh calendar display
+    const tasks = await getAllTasks();
+    renderCalendar(tasks);
+  } catch (error) {
+    console.error('Error saving task:', error);
+    alert('Failed to save task');
+  }
+}
+
+// When deleting an event
+async function handleDeleteEvent(eventId) {
+  try {
+    await deleteEvent(eventId);
+    console.log('Event deleted');
+    
+    const events = await getAllEvents();
+    renderCalendar(events);
+  } catch (error) {
+    console.error('Error deleting event:', error);
+    alert('Failed to delete event');
+  }
+}
+
+// When deleting a task
+async function handleDeleteTask(taskId) {
+  try {
+    await deleteTask(taskId);
+    console.log('Task deleted');
+    
+    const tasks = await getAllTasks();
+    renderCalendar(tasks);
+  } catch (error) {
+    console.error('Error deleting task:', error);
+    alert('Failed to delete task');
+  }
+}
+
+// When editing an event
+async function handleEditEvent(eventId, updatedEventData) {
+  try {
+    await updateEvent(eventId, {
+      title: updatedEventData.title,
+      date: updatedEventData.date,
+      time: updatedEventData.time,
+      description: updatedEventData.description,
+      updatedAt: new Date().toISOString()
+ 
+    
+    console.log('Event updated');
+    const events = await getAllEvents();
+    renderCalendar(events);
+  } catch (error) {
+    console.error('Error updating event:', error);
+    alert('Failed to update event');
+  }
+}
+
+// When editing a task
+async function handleEditTask(taskId, updatedTaskData) {
+  try {
+    await updateTask(taskId, {
+      title: updatedTaskData.title,
+      description: updatedTaskData.description,
+      dueDate: updatedTaskData.dueDate,
+      completed: updatedTaskData.completed,
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log('Task updated');
+    const tasks = await getAllTasks();
+    renderCalendar(tasks);
+  } catch (error) {
+    console.error('Error updating task:', error);
+    alert('Failed to update task');
+ });
