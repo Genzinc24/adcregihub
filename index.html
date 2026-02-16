@@ -192,6 +192,351 @@
   </section>
 
   <!-- CALENDAR & TASKS PANE -->
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Task & Event Calendar (IndexedDB)</title>
+<style>
+  :root{
+    --bg:#0b1220; --card:#111a2b; --muted:#9aa4b2; --text:#e6eefb; --brand:#4f8cff;
+    --ok:#22c55e; --event:#f59e0b; --danger:#ef4444; --grid:#1a2437;
+  }
+  html,body{height:100%}
+  body{margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif}
+  h1{margin:.5rem 0 0; font-size:1.35rem}
+  .wrap{max-width:1100px; margin:0 auto; padding:16px}
+  .topbar{display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap}
+  .nav{display:flex; gap:8px; align-items:center}
+  .nav b{font-size:1.05rem}
+  button,.btn{background:var(--card); color:var(--text); border:1px solid #22304a; padding:.5rem .7rem; border-radius:10px; cursor:pointer}
+  button:hover{background:#13203a}
+  .btn-ghost{background:transparent;border-color:#22304a}
+  .btn-danger{background:#2a1316; border-color:#4d1f25; color:#ffb4bd}
+  .grid{display:grid; grid-template-columns:repeat(7,1fr); border:1px solid #202a41; border-radius:14px; overflow:hidden}
+  .dow{display:grid; grid-template-columns:repeat(7,1fr); margin-top:12px; color:var(--muted); font-size:.85rem}
+  .dow div{padding:8px 10px; text-align:center}
+  .cell{border:1px solid var(--grid); min-height:120px; padding:8px; background:var(--card); display:flex; flex-direction:column; gap:6px}
+  .other-month{opacity:.35; filter:saturate(.7)}
+  .daynum{font-size:.9rem; color:var(--muted)}
+  .items{display:flex; flex-direction:column; gap:4px; margin-top:2px}
+  .item{display:flex; gap:6px; align-items:center; background:#0d172b; border:1px solid #203250; padding:.25rem .35rem; border-radius:8px}
+  .item .title{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .item.done .title{text-decoration:line-through; color:#8aa1c1}
+  .dot{width:8px; height:8px; border-radius:50%}
+  .dot.task{background:var(--ok)}
+  .dot.event{background:var(--event)}
+  .tools{display:flex; gap:6px; align-items:center}
+  .tools button{padding:.2rem .45rem; font-size:.8rem}
+  .toolbar{display:grid; grid-template-columns:1fr; gap:10px; margin-top:16px}
+  .card{background:var(--card); border:1px solid #22304a; border-radius:14px; padding:12px}
+  form.add{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:8px}
+  input, select{background:#0d172b; color:var(--text); border:1px solid #203250; border-radius:10px; padding:.5rem .6rem}
+  .legend{display:flex; gap:12px; align-items:center; color:var(--muted); font-size:.9rem}
+  .legend span{display:inline-flex; gap:6px; align-items:center}
+  .empty{color:#7b879a; font-style:italic; padding:.2rem 0}
+  .footer{margin-top:14px; display:flex; justify-content:space-between; align-items:center; color:var(--muted)}
+  @media (max-width:780px){
+    form.add{grid-template-columns:1fr 1fr 1fr auto}
+    .cell{min-height:110px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Task & Event Calendar</h1>
+      <div class="legend">
+        <span><span class="dot task"></span> Task</span>
+        <span><span class="dot event"></span> Event</span>
+      </div>
+    </div>
+    <div class="nav">
+      <button id="prevBtn">◀ Prev</button>
+      <button id="todayBtn" class="btn-ghost">Today</button>
+      <button id="nextBtn">Next ▶</button>
+      <b id="monthLabel"></b>
+    </div>
+  </div>
+
+  <div class="toolbar card">
+    <form class="add" id="addForm" autocomplete="off">
+      <input id="titleInput" type="text" placeholder="Title (e.g., Team sync)" required />
+      <input id="dateInput" type="date" required />
+      <input id="timeInput" type="time" />
+      <select id="typeInput" title="Type">
+        <option value="task">Task</option>
+        <option value="event">Event</option>
+      </select>
+      <button type="submit">Add</button>
+    </form>
+    <div class="footer">
+      <div>Tip: Click a checkbox to mark complete; use 🗑 to delete.</div>
+      <button id="clearAll" class="btn-danger">Clear All (local)</button>
+    </div>
+  </div>
+
+  <div class="dow">
+    <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+  </div>
+  <div class="grid" id="calendarGrid"></div>
+</div>
+
+<script>
+/* =========================
+   IndexedDB helpers
+   ========================= */
+const DB_NAME = 'planner_db_v1';
+const STORE   = 'items';
+const DB_VERSION = 1;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        const store = db.createObjectStore(STORE, { keyPath: 'id' });
+        store.createIndex('by_date', 'date', { unique: false });     // 'YYYY-MM-DD'
+        store.createIndex('by_type', 'type', { unique: false });
+        store.createIndex('by_done', 'completed', { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function withStore(db, mode, fn) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const store = tx.objectStore(STORE);
+    const result = fn(store);
+    tx.oncomplete = () => resolve(result);
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error || new DOMException('Aborted'));
+  });
+}
+
+const idb = {
+  async add(item) {
+    const db = await openDB();
+    return withStore(db, 'readwrite', (s) => s.add(item));
+  },
+  async put(item) {
+    const db = await openDB();
+    return withStore(db, 'readwrite', (s) => s.put(item));
+  },
+  async delete(id) {
+    const db = await openDB();
+    return withStore(db, 'readwrite', (s) => s.delete(id));
+  },
+  async clear() {
+    const db = await openDB();
+    return withStore(db, 'readwrite', (s) => s.clear());
+  },
+  async allInRange(startISO, endISO) {
+    const db = await openDB();
+    return withStore(db, 'readonly', (s) => new Promise((resolve, reject) => {
+      const idx = s.index('by_date');
+      const range = IDBKeyRange.bound(startISO, endISO);
+      const req = idx.getAll(range);
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    }));
+  }
+};
+
+/* =========================
+   Calendar / UI state
+   ========================= */
+const monthLabel = document.getElementById('monthLabel');
+const grid       = document.getElementById('calendarGrid');
+const addForm    = document.getElementById('addForm');
+const titleInput = document.getElementById('titleInput');
+const dateInput  = document.getElementById('dateInput');
+const timeInput  = document.getElementById('timeInput');
+const typeInput  = document.getElementById('typeInput');
+
+const prevBtn  = document.getElementById('prevBtn');
+const nextBtn  = document.getElementById('nextBtn');
+const todayBtn = document.getElementById('todayBtn');
+const clearAll = document.getElementById('clearAll');
+
+let current = new Date(); // focused month
+
+function isoDate(d) {
+  const off = d.getTimezoneOffset();
+  const d2 = new Date(d.getTime() - off*60*1000);
+  return d2.toISOString().slice(0,10); // YYYY-MM-DD
+}
+
+function pad(n){ return n.toString().padStart(2,'0'); }
+
+function startOfMonth(d){ return new Date(d.getFullYear(), d.getMonth(), 1); }
+function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0); }
+function addMonths(d, n){ return new Date(d.getFullYear(), d.getMonth()+n, 1); }
+
+function setTodayDefaults(){
+  const todayISO = isoDate(new Date());
+  dateInput.value = todayISO;
+}
+
+async function render() {
+  const first = startOfMonth(current);
+  const last  = endOfMonth(current);
+  const firstDay = first.getDay();
+  const daysInMonth = last.getDate();
+
+  // Fetch all items for the visible month
+  const startISO = isoDate(first);
+  const endISO   = isoDate(last);
+  const items = await idb.allInRange(startISO, endISO);
+
+  // Group by date
+  const byDate = {};
+  for (const it of items) {
+    (byDate[it.date] ||= []).push(it);
+  }
+
+  // Label
+  const fmt = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+  monthLabel.textContent = fmt.format(current);
+
+  // Build cells including previous/next spill (6 weeks grid)
+  const cells = [];
+  const totalCells = 42; // 6 rows x 7 cols
+  const firstCellDate = new Date(first);
+  firstCellDate.setDate(first.getDate() - firstDay); // go back to Sunday of week 1
+
+  for (let i=0; i<totalCells; i++){
+    const d = new Date(firstCellDate);
+    d.setDate(firstCellDate.getDate() + i);
+    const inMonth = d.getMonth() === current.getMonth();
+    const dayISO = isoDate(d);
+    const list = byDate[dayISO] || [];
+
+    const cell = document.createElement('div');
+    cell.className = 'cell' + (inMonth ? '' : ' other-month');
+
+    const header = document.createElement('div');
+    header.className = 'daynum';
+    header.textContent = d.getDate();
+    cell.appendChild(header);
+
+    const itemsWrap = document.createElement('div');
+    itemsWrap.className = 'items';
+
+    if (list.length === 0) {
+      const em = document.createElement('div');
+      em.className = 'empty';
+      em.textContent = '—';
+      itemsWrap.appendChild(em);
+    } else {
+      // Sort: incomplete first, then time (if any)
+      list.sort((a,b) => Number(a.completed) - Number(b.completed) || (a.time||'').localeCompare(b.time||''));
+      list.forEach(it => itemsWrap.appendChild(renderItem(it)));
+    }
+
+    cell.appendChild(itemsWrap);
+    // Allow adding directly by clicking empty space in cell
+    cell.addEventListener('dblclick', () => {
+      dateInput.value = dayISO;
+      titleInput.focus();
+    });
+
+    cells.push(cell);
+  }
+
+  grid.replaceChildren(...cells);
+}
+
+function renderItem(it){
+  const row = document.createElement('div');
+  row.className = 'item' + (it.completed ? ' done' : '');
+
+  const dot = document.createElement('span');
+  dot.className = 'dot ' + (it.type === 'event' ? 'event':'task');
+
+  const check = document.createElement('input');
+  check.type = 'checkbox';
+  check.checked = !!it.completed;
+  check.addEventListener('change', async () => {
+    it.completed = check.checked;
+    await idb.put(it);
+    await render();
+  });
+
+  const ttl = document.createElement('span');
+  ttl.className = 'title';
+  ttl.textContent = (it.time ? it.time + ' • ' : '') + it.title;
+
+  const tools = document.createElement('div');
+  tools.className = 'tools';
+  const del = document.createElement('button');
+  del.title = 'Delete';
+  del.textContent = '🗑';
+  del.addEventListener('click', async () => {
+    await idb.delete(it.id);
+    await render();
+  });
+
+  tools.appendChild(del);
+  row.append(dot, check, ttl, tools);
+  return row;
+}
+
+/* =========================
+   Event wiring
+   ========================= */
+prevBtn.addEventListener('click', () => { current = addMonths(current, -1); render(); });
+nextBtn.addEventListener('click', () => { current = addMonths(current, +1); render(); });
+todayBtn.addEventListener('click', () => { current = new Date(); setTodayDefaults(); render(); });
+
+addForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const title = titleInput.value.trim();
+  if (!title) return;
+
+  const date = dateInput.value || isoDate(new Date());
+  const time = timeInput.value || '';
+  const type = typeInput.value;
+
+  const item = {
+    id: crypto.randomUUID(),
+    title, date, time, type,
+    completed: false,
+    createdAt: Date.now()
+  };
+
+  await idb.add(item);
+  titleInput.value = '';
+  timeInput.value = '';
+  // Jump to month being added (if different)
+  const d = new Date(date + 'T00:00:00');
+  current = new Date(d.getFullYear(), d.getMonth(), 1);
+  await render();
+});
+
+clearAll.addEventListener('click', async () => {
+  if (!confirm('Clear all locally stored items? This cannot be undone.')) return;
+  await idb.clear();
+  await render();
+});
+
+/* =========================
+   Boot
+   ========================= */
+(async function init(){
+  // Set default date to today
+  setTodayDefaults();
+  await openDB(); // ensures store exists
+  await render();
+})();
+</script>
+</body>
+</html>
+  
   <section id="calendar" class="container pad" data-pane hidden>
     <div class="row between center wrap gap-md">
       <h2 class="section-title">Calendar</h2>
